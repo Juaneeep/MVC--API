@@ -1,8 +1,8 @@
 # Entrega · Laboratorio API · Notas del semestre
 
 **Equipo:** ______________________  
-**Integrantes:** ______________________  
-**Repositorio:** ______________________
+**Integrantes:** Juan Esteban Escobar, 
+**Repositorio:** https://github.com/Juaneeep/MVC--API
 
 > Completa este archivo a medida que avanzas (cada sección dice en qué parte de la guía se llena).
 > Escribe con tus palabras: las respuestas copiadas de la guía o de otro equipo no cuentan.
@@ -17,12 +17,12 @@ minúsculas, con versión `/v1`) y el **método** es la acción. No pongas verbo
 
 | Operación | Método | URI | Éxito (estado + qué devuelve) | Errores posibles (estado → cuándo) |
 |---|---|---|---|---|
-| Listar todas las evaluaciones | | | | |
-| Ver una evaluación | | | | |
-| Crear una evaluación | | | | |
-| Poner o quitar la nota de una evaluación | | | | |
-| Eliminar una evaluación | | | | |
-| Ver el resumen (acumulado, nota necesaria, estado) | | | | |
+| Listar todas las evaluaciones |Listar |GET /v1/evaluaciones |200, arreglo de evaluaciones |Ninguno propio |
+| Ver una evaluación |Ver una |GET /v1/evaluaciones/{id} |200, la evaluación |404 no existe |
+| Crear una evaluación |Crear |POST /v1/evaluaciones |201, la evaluación nueva y la cabecera Location |400 JSON roto |
+| Poner o quitar la nota de una evaluación |Poner o quitar nota |PATCH /v1/evaluaciones/{id} con { "nota": 4.5 } o null |200, la evaluación actualizada | 404 no existe|
+| Eliminar una evaluación |Eliminar|DELETE /v1/evaluaciones/{id} |204, sin cuerpo |404 no existe |
+| Ver el resumen (acumulado, nota necesaria, estado) |Resumen |GET /v1/resumen |200, acumulado, nota necesaria y estado |Ninguno propio |
 
 ### 1b. Critica estas direcciones
 
@@ -30,12 +30,12 @@ Alguien diseñó estas direcciones. Escribe qué está mal en cada una y cómo l
 
 | Diseño original | Qué está mal | Cómo la reescribo |
 |---|---|---|
-| `POST /crearEvaluacion` | | |
-| `GET /getAllEvaluaciones?format=json` | | |
-| `GET /eliminar?id=3` | | |
-| `POST /evaluacion/3/calificar` (responde `200 { "ok": false, "error": "..." }` si la nota es inválida) | | |
-| `GET /v1/Evaluaciones/` | | |
-| `PUT /evaluaciones` con **toda** la lista de evaluaciones en el cuerpo, cada vez que algo cambia | | |
+| `POST /crearEvaluacion` |	Lleva un verbo, está en singular y no tiene versión | |
+| `GET /getAllEvaluaciones?format=json` |Verbo get repetido, mayúsculas, sin versión y formato en la consulta |GET /v1/evaluaciones |
+| `GET /eliminar?id=3` |Verbo en la URI, el id va en la consulta en vez de en la ruta |DELETE /v1/evaluaciones/3 |
+| `POST /evaluacion/3/calificar` (responde `200 { "ok": false, "error": "..." }` si la nota es inválida) |Verbo en la URI, singular, sin versión y el fallo se dice en el cuerpo en vez de en el estado | |
+| `GET /v1/Evaluaciones/` |Mayúscula y barra final |GET /v1/evaluaciones |
+| `PUT /evaluaciones` con **toda** la lista de evaluaciones en el cuerpo, cada vez que algo cambia |Se reenvía todo para cambiar un dato y se pueden pisar cambios de otro aparato y no tiene versión | POST para crear, PATCH para cambiar una evaluación y DELETE para borrarla, cada uno sobre /v1/evaluaciones[/{id}]|
 
 ## 2. Mis decisiones de estado (Parte 2)
 
