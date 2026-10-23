@@ -30,10 +30,10 @@ Alguien diseñó estas direcciones. Escribe qué está mal en cada una y cómo l
 
 | Diseño original | Qué está mal | Cómo la reescribo |
 |---|---|---|
-| `POST /crearEvaluacion` |	Lleva un verbo, está en singular y no tiene versión | |
+| `POST /crearEvaluacion` |	Lleva un verbo, está en singular y no tiene versión |POST /v1/evaluaciones |
 | `GET /getAllEvaluaciones?format=json` |Verbo get repetido, mayúsculas, sin versión y formato en la consulta |GET /v1/evaluaciones |
 | `GET /eliminar?id=3` |Verbo en la URI, el id va en la consulta en vez de en la ruta |DELETE /v1/evaluaciones/3 |
-| `POST /evaluacion/3/calificar` (responde `200 { "ok": false, "error": "..." }` si la nota es inválida) |Verbo en la URI, singular, sin versión y el fallo se dice en el cuerpo en vez de en el estado | |
+| `POST /evaluacion/3/calificar` (responde `200 { "ok": false, "error": "..." }` si la nota es inválida) |Verbo en la URI, singular, sin versión y el fallo se dice en el cuerpo en vez de en el estado |PATCH /v1/evaluaciones/3 |
 | `GET /v1/Evaluaciones/` |Mayúscula y barra final |GET /v1/evaluaciones |
 | `PUT /evaluaciones` con **toda** la lista de evaluaciones en el cuerpo, cada vez que algo cambia |Se reenvía todo para cambiar un dato y se pueden pisar cambios de otro aparato y no tiene versión | POST para crear, PATCH para cambiar una evaluación y DELETE para borrarla, cada uno sobre /v1/evaluaciones[/{id}]|
 
