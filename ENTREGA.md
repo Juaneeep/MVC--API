@@ -43,16 +43,19 @@ Después de completar `ESTADO_POR_CODIGO`, responde con tus palabras.
 
 | Situación | Estado que elegí | ¿Por qué ese y no otro? |
 |---|---|---|
-| El peso es 0, o la nota es 7 | | |
-| El nombre ya existe, o los pesos pasarían de 100 | | |
-| La evaluación no existe | | |
-| El cuerpo no es JSON, o está roto | | |
-| El cuerpo es JSON pero se envió como `text/plain` | | |
-| Se pide `PUT /v1/evaluaciones` (no existe ese método ahí) | | |
+| El peso es 0, o la nota es 7 | 422 Unprocessable Content | El servidor entendió la solicitud (es JSON válido y tiene la forma correcta), pero un valor incumple una regla. No es 400 porque la solicitud no está "rota", y no es 409 porque el error no depende de lo que ya hay guardado: un peso de 0 es inválido siempre. |
+| El nombre ya existe, o los pesos pasarían de 100 | 409 Conflict | El valor por sí solo es válido (un peso de 60 está bien, igual que el nombre "Taller"), pero choca con el estado actual del servidor. Si se borra la otra evaluación, la misma solicitud sí funcionaría. Por eso es un conflicto y no un 422. |
+| La evaluación no existe | 404 Not Found | El recurso que nombra la URI no existe. Se revisa primero, por eso un PATCH a /v1/evaluaciones/99 da 404 aunque la nota también esté mal: no tiene sentido validar algo que no existe. |
+| El cuerpo no es JSON, o está roto | 400 Bad Request | El servidor ni siquiera puede leer lo que se le mandó, así que no llega a revisar las reglas. Es un error de forma, no de contenido. |
+| El cuerpo es JSON pero se envió como `text/plain` | 415 Unsupported Media Type | La cabecera Content-Type dice un formato que la API no acepta. El servidor se guía por lo que declara la cabecera, no adivina el contenido. |
+| Se pide `PUT /v1/evaluaciones` (no existe ese método ahí) | 405 Method Not Allowed | La dirección sí existe, pero no acepta ese método. Por eso no es 404. La respuesta trae la cabecera `Allow: GET, POST` para decir qué métodos sí se pueden usar. |
 
 1. ¿Por qué calificar usa `PATCH` y no `PUT`? ¿Y por qué crear usa `POST` y no `PUT`?
+  Calificar solo cambia una parte de la evaluación, la nota, y PATCH es justamente para cambios parciales. Con PUT habría que mandar la evaluación completa (nombre, peso y nota) para reemplazarla, y se podría      pisar el nombre o el peso sin querer. Crear usa POST porque es el servidor el que decide el id y la dirección del recurso nuevo (la devuelve en Location). PUT se usa cuando el cliente ya conoce la dirección      exacta donde va a quedar el recurso, y aquí el cliente no la conoce.
 2. `DELETE` repetido: la primera vez responde 204 y la segunda 404. ¿Eso rompe la idempotencia? Explica qué significa en realidad «idempotente».
+  No la rompe. Idempotente significa que repetir la misma solicitud deja el servidor en el mismo estado que hacerla una sola vez, no que la respuesta sea igual. Después del primer DELETE la evaluación ya no existe, y después del segundo sigue sin existir: el estado del servidor es el mismo. El 404 solo informa que ya no había nada que borrar.
 3. ¿Por qué el `type` de un problema es un identificador estable y no basta con el `detail`?
+   El detail está escrito para personas: puede cambiar de redacción, traducirse a otro idioma o traer datos variables, como "te quedan 40 %". Si un programa decidiera qué hacer comparando ese texto, se rompería    con cualquier cambio de redacción. El type (por ejemplo .../problemas/nombre-duplicado) no cambia nunca, así que un cliente puede reconocer el error con seguridad y reaccionar, por ejemplo marcando en rojo el     campo del nombre.
 
 ## 3. MVC a los dos lados del cable (Parte 3)
 
