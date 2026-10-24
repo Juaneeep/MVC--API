@@ -8,7 +8,7 @@ import { TermometroVista } from './termometro-vista.js';
 import { NotasControlador } from './controlador.js';
 
 // 1. El cable: habla con la API. Parte 4: cambia 'v1' por 'v2' y mira la consola del navegador.
-const api = new ClienteApi({ version: 'v1' });
+const api = new ClienteApi({ version: 'v2' });
 
 // 2. El Modelo, ahora remoto: pregunta todo a la API. Lo primero es traer el estado actual.
 const modelo = new NotasModeloRemoto(api);

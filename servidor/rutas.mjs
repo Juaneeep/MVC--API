@@ -75,10 +75,17 @@ export function crearRutas(modelo) {
 
   // -------------------------------------------------------------- 2A · Leer
   const listarV1 = () => {
-    // TODO 2A: responde 200 con un ARREGLO de representaciones (usa modelo.evaluaciones y representarEvaluacion).
-    //          Parte 4B: aquí volverás para agregar los avisos de que la v1 está obsoleta.
-    return { status: 200, cuerpo: modelo.evaluaciones.map(representarEvaluacion) };
+  // La v1 sigue devolviendo el mismo arreglo, pero avisa que está obsoleta
+  return {
+    status: 200,
+    cuerpo: modelo.evaluaciones.map((e) => representarEvaluacion(e)),
+    cabeceras: {
+      Deprecation: `@${Math.floor(DEPRECIADA_DESDE.getTime() / 1000)}`,
+      Sunset: SE_RETIRA_EN.toUTCString(),
+      Link: '</v2/evaluaciones>; rel="successor-version"',
+    },
   };
+};
 
   const obtener = (solicitud) => {
     // TODO 2A: responde 200 con la representación de UNA evaluación. Usa modelo.obtener(idDe(solicitud)):
@@ -118,36 +125,64 @@ export function crearRutas(modelo) {
   };
 
   // -------------------------------------------------------------- 4A · v2: lista paginada, filtrada y ordenada
-  const listarV2 = ({ query, ruta }) => {
-    // TODO 4A: pasos sugeridos.
-    //   1. pagina = leerEntero(query, 'pagina', { porDefecto: 1, min: 1 })
-    //      porPagina = leerEntero(query, 'porPagina', { porDefecto: 10, min: 1, max: 50 })   (lanzan 400 si no son válidos)
-    //   2. estado = query.get('estado'): si no es null y no está en ESTADOS → throw new ErrorHttp(400, '...')
-    //      orden = query.get('orden') ?? 'id': si no está en ORDENES → 400. Los mensajes deben nombrar el parámetro entre comillas.
-    //   3. lista = modelo.evaluaciones; filtra por estado (pendiente = sin nota, calificada = con nota); ordena con ordenar().
-    //   4. total, totalPaginas = Math.max(1, Math.ceil(total / porPagina)); recorta con slice y representa cada una.
-    //   5. Cabecera Link (RFC 8288) con rel="prev" y rel="next" cuando existan esas páginas, conservando estado, orden y porPagina:
-    //        </v2/evaluaciones?pagina=3&porPagina=3>; rel="next"        (ayuda: new URLSearchParams({...}))
-    //   6. Responde 200 con { datos: [...], paginacion: { pagina, porPagina, total, totalPaginas } }.
-    throw new Error('TODO 4A · listarV2()');
+ const listarV2 = ({ query, ruta }) => {
+  const pagina = leerEntero(query, 'pagina', { porDefecto: 1, min: 1 });
+  const porPagina = leerEntero(query, 'porPagina', { porDefecto: 10, min: 1, max: 50 });
+
+  const estado = query.get('estado');
+  if (estado !== null && !ESTADOS.includes(estado)) {
+    throw new ErrorHttp(400, `El parámetro "estado" debe ser uno de: ${ESTADOS.join(', ')}.`);
+  }
+  const ordenPedido = query.get('orden');
+  const orden = ordenPedido ?? 'id';
+  if (!ORDENES.includes(orden)) {
+    throw new ErrorHttp(400, `El parámetro "orden" debe ser uno de: ${ORDENES.join(', ')}.`);
+  }
+
+  let lista = modelo.evaluaciones;
+  if (estado === 'pendiente') lista = lista.filter((e) => e.nota === null);
+  if (estado === 'calificada') lista = lista.filter((e) => e.nota !== null);
+  lista = ordenar(lista, orden);
+
+  const total = lista.length;
+  const totalPaginas = Math.max(1, Math.ceil(total / porPagina));
+  const datos = lista
+    .slice((pagina - 1) * porPagina, pagina * porPagina)
+    .map((e) => representarEvaluacion(e));
+
+  // Cabecera Link (RFC 8288): conserva estado, orden y porPagina
+  const enlace = (n, rel) => {
+    const params = new URLSearchParams({ pagina: n, porPagina });
+    if (estado) params.set('estado', estado);
+    if (ordenPedido) params.set('orden', ordenPedido);
+    return `<${ruta}?${params}>; rel="${rel}"`;
   };
+  const enlaces = [];
+  if (pagina > 1) enlaces.push(enlace(Math.min(pagina - 1, totalPaginas), 'prev'));
+  if (pagina < totalPaginas) enlaces.push(enlace(pagina + 1, 'next'));
+
+  return {
+    status: 200,
+    cuerpo: { datos, paginacion: { pagina, porPagina, total, totalPaginas } },
+    cabeceras: enlaces.length ? { Link: enlaces.join(', ') } : {},
+  };
+};
 
   // -------------------------------------------------------------- La tabla de rutas
   // Cada entrada es { metodo, ruta, manejador }. La ruta usa plantillas: '/v1/evaluaciones/{id}'.
   // Mira primero tu diseño de la Parte 1: una URI nombra un recurso (sustantivo), el método HTTP es la acción.
-  return [
-    // 2A · Leer
-    { metodo: 'GET', ruta: '/v1/evaluaciones', manejador: listarV1 },
-    { metodo: 'GET', ruta: '/v1/evaluaciones/{id}', manejador: obtener },
-    { metodo: 'GET', ruta: '/v1/resumen', manejador: resumen },
-    // 2B · Crear
-    { metodo: 'POST', ruta: '/v1/evaluaciones', manejador: crear },
-    // 2C · Modificar la nota y borrar
-    { metodo: 'PATCH', ruta: '/v1/evaluaciones/{id}', manejador: calificar },
-    { metodo: 'DELETE', ruta: '/v1/evaluaciones/{id}', manejador: eliminar },
-    //
-    // TODO 4C: cuando termines la v2 (4A) y los avisos (4B), agrupa lo que no cambió con
-    //          ...paraVersiones(['v1', 'v2'], [ ...las entradas sin el prefijo /v1... ]) y registra aparte la lista de cada versión:
-    //          GET /v1/evaluaciones → listarV1 y GET /v2/evaluaciones → listarV2.
-  ];
+return [
+  // Lo que cambió entre versiones: la lista
+  { metodo: 'GET', ruta: '/v1/evaluaciones', manejador: listarV1 },
+  { metodo: 'GET', ruta: '/v2/evaluaciones', manejador: listarV2 },
+
+  // Lo que no cambió: igual en las dos versiones, sin copiar y pegar
+  ...paraVersiones(['v1', 'v2'], [
+    { metodo: 'GET',    ruta: '/evaluaciones/{id}', manejador: obtener },
+    { metodo: 'GET',    ruta: '/resumen',           manejador: resumen },
+    { metodo: 'POST',   ruta: '/evaluaciones',      manejador: crear },
+    { metodo: 'PATCH',  ruta: '/evaluaciones/{id}', manejador: calificar },
+    { metodo: 'DELETE', ruta: '/evaluaciones/{id}', manejador: eliminar },
+  ]),
+];
 }

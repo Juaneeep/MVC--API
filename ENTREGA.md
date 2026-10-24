@@ -77,14 +77,14 @@ los clientes existentes, y justifica en una frase.
 
 | Cambio | ¿Compatible o rompe? | ¿Por qué? |
 |---|---|---|
-| Agregar el campo `aporte` a cada evaluación | | |
-| Cambiar `peso` por `porcentaje` en cada evaluación | | |
-| Devolver `nota` como texto (`"4.2"`) en vez de número | | |
-| Agregar el endpoint `GET /v1/evaluaciones/{id}/historial` | | |
-| Pasar la lista de un arreglo a un objeto `{ datos, paginacion }` | | |
-| Exigir un campo nuevo, `profesor`, al crear una evaluación | | |
-| Cambiar el `porPagina` por defecto de 10 a 20 | | |
-| Aceptar también `peso` con decimales de coma (`"12,5"`) | | |
+| Agregar el campo `aporte` a cada evaluación |Compatible |Un campo nuevo se ignora si el cliente no lo conoce. |
+| Cambiar `peso` por `porcentaje` en cada evaluación |Rompe |El campo que los clientes leen desaparece. |
+| Devolver `nota` como texto (`"4.2"`) en vez de número |Rompe |Cambia el tipo y los cálculos con la nota fallarían. |
+| Agregar el endpoint `GET /v1/evaluaciones/{id}/historial` |Compatible |Es un endpoint nuevo que nadie usa aún. |
+| Pasar la lista de un arreglo a un objeto `{ datos, paginacion }` |Rompe |Cambia la forma y un .map() sobre el arreglo falla. |
+| Exigir un campo nuevo, `profesor`, al crear una evaluación |Rompe |Los POST actuales sin ese campo empezarían a fallar. |
+| Cambiar el `porPagina` por defecto de 10 a 20 |Compatible |La forma no cambia, aunque conviene avisar. |
+| Aceptar también `peso` con decimales de coma (`"12,5"`) |Compatible |Se acepta más y lo anterior sigue funcionando. |
 
 **Plan de retiro de la v1.** Fechas que usaron en `Deprecation` y `Sunset`: ______________________.
 ¿Cómo se enteraría un cliente real que nunca lee tu documentación? ¿Qué pondrías en tu plan para ayudarlos a migrar?
@@ -97,7 +97,7 @@ los clientes existentes, y justifica en una frase.
 
 ```
 
-**Captura de pantalla** de la pestaña *Network* del navegador mostrando las cabeceras `Deprecation` y `Sunset` de `GET /v1/evaluaciones`: _(pega la imagen o su enlace)_
+**Captura de pantalla** de la pestaña *Network* del navegador mostrando las cabeceras `Deprecation` y `Sunset` de `GET /v1/evaluaciones`:![alt text](image.png)
 
 **Fragmento de `/openapi.json`** con la operación `GET /v2/evaluaciones`:
 
