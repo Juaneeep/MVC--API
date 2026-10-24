@@ -63,7 +63,112 @@ Dibuja (a mano y pega una foto, o con texto/Mermaid) el recorrido completo desde
 hasta que ve la fila nueva. Marca en cada paso **el archivo y el método** que actúa, y dónde cruza el cable.
 
 ```text
-(tu diagrama aquí)
+USUARIO escribe nombre, peso y nota, y presiona «Agregar»
+   │
+   ▼
+① cliente/index.html · <form id="form">
+   El navegador dispara el evento "submit" del formulario.
+   │
+   ▼
+② cliente/src/vista.js · NotasVista.alAgregar()  (el escuchador de "submit")
+   evento.preventDefault()  → la página no se recarga
+   Lee el formulario → { nombre, peso, nota } como TEXTO
+   Llama al manejador que registró el Controlador.
+   │
+   ▼
+③ cliente/src/controlador.js · NotasControlador.#agregar()
+   Convierte el texto: peso → número; nota vacía '' → null (aNota).
+   Espera la orden con await #intentar(() => modelo.agregar(datos)).
+   │
+   ▼
+④ cliente/src/modelo-remoto.js · agregar() → #ordenar()
+   Una sola solicitud: this.#api.solicitar('POST', '/evaluaciones', { nombre, peso, nota })
+   │
+   ▼
+⑤ cliente/src/cliente-api.js · solicitar()
+   Arma la dirección con la versión (/v2) y llama a fetch con el cuerpo en JSON.
+   │
+   ║
+   ║══════════════ EL CABLE: HTTP + JSON ══════════════
+   ║   POST /v2/evaluaciones    { "nombre": "...", "peso": 30, "nota": 3.5 }
+   ▼
+⑥ servidor/nucleo.mjs · crearManejador() → manejar() → resolver()
+   Busca la ruta en la tabla (404 si no existe, 405 con Allow si el método no está ahí).
+   Para POST llama a leerCuerpoJson(): 415 si no es application/json,
+   400 si el JSON está roto o no es un objeto, 413 si es enorme.
+   Calcula `base` ("/v2") y llama al manejador con { params, query, cuerpo, base, ... }.
+   │
+   ▼
+⑦ servidor/rutas.mjs · crear()  (el Controlador de la API)
+   Toma SOLO nombre, peso y nota del cuerpo (si el cliente manda un id, se ignora)
+   y llama a modelo.agregar(...).
+   │
+   ▼
+⑧ servidor/modelo.js · NotasModelo.agregar()
+   Valida en orden: nombre (obligatorio, largo, único), peso, nota y suma de pesos.
+   │
+   ├── ✗ Falla una regla → lanza ErrorDeReglas (con su `codigo`)
+   │      │
+   │      ▼
+   │   servidor/nucleo.mjs · respuestaDeError()
+   │      Llama a servidor/rutas.mjs · traducirError(): busca el código en
+   │      ESTADO_POR_CODIGO → ErrorHttp con 409 o 422.
+   │      Arma el documento con documentoProblema() (RFC 9457) y lo envía con
+   │      Content-Type: application/problem+json
+   │      { type, title, status, detail: "Ya existe una evaluación con ese nombre.", instance }
+   │      ║
+   │      ║══════════════ EL CABLE (vuelta con error) ══════════════
+   │      ▼
+   │   cliente/src/cliente-api.js · lanza ErrorApi (con status y problema)
+   │      │
+   │      ▼
+   │   cliente/src/modelo-remoto.js · traducir()
+   │      409, 404 o 422 → ErrorDeReglas con el `detail` del servidor
+   │      │
+   │      ▼
+   │   cliente/src/controlador.js · #intentar() lo atrapa
+   │      vista.mostrarError(mensaje) → el mensaje aparece en #error
+   │      vista.render()               → el formulario conserva lo escrito
+   │      (FIN: no se limpia el formulario)
+   │
+   └── ✓ Todo bien → push({ id, nombre, peso, nota }) y llama a this.#cambio()
+          │
+          ▼
+⑨ servidor/modelo.js · NotasModelo.#cambio()
+   this.#almacen.guardar(this.evaluaciones)  →  servidor/almacen.mjs
+   (el servidor es el único dueño de los datos)
+          │
+          ▼
+⑩ servidor/rutas.mjs · crear() devuelve { status: 201, cabeceras: { Location }, cuerpo }
+   (el cuerpo sale de servidor/representaciones.mjs · representarEvaluacion)
+   servidor/nucleo.mjs · enviar() lo escribe como application/json
+          │
+          ║
+          ║══════════════ EL CABLE (vuelta con éxito) ══════════════
+          ║   201 Created   Location: /v2/evaluaciones/4   { "id": 4, ... }
+          ▼
+⑪ cliente/src/cliente-api.js · solicitar() devuelve el resultado
+          │
+          ▼
+⑫ cliente/src/modelo-remoto.js · #ordenar() → sincronizar()
+   «El servidor es la verdad»: pide de nuevo la lista y el resumen
+   (GET /v2/evaluaciones y GET /v2/resumen), guarda las copias y avisa a los suscriptores.
+          │
+          ├─────────────────────────────────────┐
+          ▼                                     ▼
+⑬ cliente/src/vista.js · NotasVista.render()   ⑭ cliente/src/termometro-vista.js · TermometroVista.render()
+   Lee modelo.evaluaciones y                      Lee modelo.resumen().
+   modelo.resumen().                              Llena la barra según el acumulado
+   Crea cada <tr> con createElement /             y actualiza la leyenda.
+   textContent. Actualiza el resumen y #estado.
+          │
+          ▼
+⑮ cliente/src/controlador.js · #intentar()  (la orden salió bien)
+   vista.limpiarError()       → borra #error
+   vista.limpiarFormulario()  → vacía los tres campos
+          │
+          ▼
+USUARIO ve la fila nueva en la tabla, el resumen actualizado y el termómetro movido
 ```
 
 1. ¿Qué archivos del navegador **no** tuviste que tocar al conectar la API? ¿Qué te dice eso de la arquitectura?
