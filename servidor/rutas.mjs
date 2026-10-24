@@ -29,6 +29,19 @@ const ESTADO_POR_CODIGO = {
   //   · el contenido choca con el ESTADO actual (duplicado, tope de pesos) . ¿400, 409 o 422?
   // Escribe también tu decisión, y su porqué, en ENTREGA.md (sección 2).
   //   NO_EXISTE: ...,
+
+  // El recurso no existe → 404 Not Found.
+  NO_EXISTE: 404,
+
+  // El CONTENIDO se entiende (es JSON válido) pero un valor incumple una regla → 422 Unprocessable Content.
+  NOMBRE_OBLIGATORIO: 422,
+  NOMBRE_LARGO: 422,
+  PESO_FUERA_DE_RANGO: 422,
+  NOTA_FUERA_DE_RANGO: 422,
+
+  // El valor por sí solo es válido, pero CHOCA con el estado actual del sistema → 409 Conflict.
+  PESOS_EXCEDEN_100: 409,
+  NOMBRE_DUPLICADO: 409,
 };
 
 /** El núcleo la llama con cada error que no es un ErrorHttp. Lo que no es del Modelo se devuelve igual (→ 500). */
@@ -36,7 +49,9 @@ export function traducirError(error) {
   // TODO 2B: si NO es un ErrorDeReglas, devuélvelo tal cual (el núcleo lo convertirá en un 500 sin filtrar detalles).
   //          Si lo es, devuelve new ErrorHttp(estado, error.message, tipoDeProblema(error.codigo)),
   //          donde `estado` sale de tu tabla ESTADO_POR_CODIGO (y si el código no está, usa 422).
-  return error;
+  if (!(error instanceof ErrorDeReglas)) return error;
+  const estado = ESTADO_POR_CODIGO[error.codigo] ?? 422;
+  return new ErrorHttp(estado, error.message, tipoDeProblema(error.codigo));
 }
 
 // ---------------------------------------------------------------- Fechas del ciclo de vida de la v1 (Parte 4B)
@@ -62,13 +77,13 @@ export function crearRutas(modelo) {
   const listarV1 = () => {
     // TODO 2A: responde 200 con un ARREGLO de representaciones (usa modelo.evaluaciones y representarEvaluacion).
     //          Parte 4B: aquí volverás para agregar los avisos de que la v1 está obsoleta.
-    throw new Error('TODO 2A · listarV1()');
+    return { status: 200, cuerpo: modelo.evaluaciones.map(representarEvaluacion) };
   };
 
   const obtener = (solicitud) => {
     // TODO 2A: responde 200 con la representación de UNA evaluación. Usa modelo.obtener(idDe(solicitud)):
     //          si no existe, el Modelo lanza un error con código NO_EXISTE y tu tabla de estados (2B) lo vuelve 404.
-    throw new Error('TODO 2A · obtener()');
+    return { status: 200, cuerpo: representarEvaluacion(modelo.obtener(idDe(solicitud))) };
   };
 
   // EJEMPLO RESUELTO (así se ve un manejador completo): el resumen es un recurso CALCULADO, de solo lectura.
@@ -80,18 +95,26 @@ export function crearRutas(modelo) {
     //          (el id lo decide el servidor, aunque el cliente mande uno).
     //          Responde 201 (no 200), con la cabecera Location apuntando a la evaluación nueva
     //          (`${base}/evaluaciones/${id}`) y con su representación en el cuerpo.
-    throw new Error('TODO 2B · crear()');
+    const { nombre, peso, nota } = cuerpo; // solo estos tres: si el cliente manda un id, se ignora
+    const nueva = modelo.agregar({ nombre, peso, nota });
+    return {
+      status: 201,
+      cabeceras: { Location: `${base}/evaluaciones/${nueva.id}` },
+      cuerpo: representarEvaluacion(nueva),
+    };
   };
 
   const calificar = (solicitud) => {
     // TODO 2C: modelo.calificar(idDe(solicitud), solicitud.cuerpo.nota) y responde 200 con la evaluación actualizada.
     //          La nota puede ser un número entre 0 y 5, o null para quitarla.
-    throw new Error('TODO 2C · calificar()');
+    const actualizada = modelo.calificar(idDe(solicitud), solicitud.cuerpo.nota);
+    return { status: 200, cuerpo: representarEvaluacion(actualizada) };
   };
 
   const eliminar = (solicitud) => {
     // TODO 2C: modelo.eliminar(...) y responde 204 (sin cuerpo): hecho, y no hay nada que devolver.
-    throw new Error('TODO 2C · eliminar()');
+    modelo.eliminar(idDe(solicitud));
+    return { status: 204 };
   };
 
   // -------------------------------------------------------------- 4A · v2: lista paginada, filtrada y ordenada
@@ -113,9 +136,15 @@ export function crearRutas(modelo) {
   // Cada entrada es { metodo, ruta, manejador }. La ruta usa plantillas: '/v1/evaluaciones/{id}'.
   // Mira primero tu diseño de la Parte 1: una URI nombra un recurso (sustantivo), el método HTTP es la acción.
   return [
-    // TODO 2A: registra aquí las lecturas: GET de la lista, GET de una evaluación y GET del resumen.
-    // TODO 2B: registra aquí la creación.
-    // TODO 2C: registra aquí la modificación de la nota y el borrado.
+    // 2A · Leer
+    { metodo: 'GET', ruta: '/v1/evaluaciones', manejador: listarV1 },
+    { metodo: 'GET', ruta: '/v1/evaluaciones/{id}', manejador: obtener },
+    { metodo: 'GET', ruta: '/v1/resumen', manejador: resumen },
+    // 2B · Crear
+    { metodo: 'POST', ruta: '/v1/evaluaciones', manejador: crear },
+    // 2C · Modificar la nota y borrar
+    { metodo: 'PATCH', ruta: '/v1/evaluaciones/{id}', manejador: calificar },
+    { metodo: 'DELETE', ruta: '/v1/evaluaciones/{id}', manejador: eliminar },
     //
     // TODO 4C: cuando termines la v2 (4A) y los avisos (4B), agrupa lo que no cambió con
     //          ...paraVersiones(['v1', 'v2'], [ ...las entradas sin el prefijo /v1... ]) y registra aparte la lista de cada versión:
