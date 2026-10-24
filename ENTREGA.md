@@ -199,7 +199,8 @@ los clientes existentes, y justifica en una frase.
 **Salida de `npm test`** (pega el final, donde dice cuántas pruebas pasan):
 
 ```text
-
+✗ 100 de 110 pruebas pasan.
+(Se muestra un grupo a la vez. Con "npm test -- --todo" ves todos los fallo
 ```
 
 **Captura de pantalla** de la pestaña *Network* del navegador mostrando las cabeceras `Deprecation` y `Sunset` de `GET /v1/evaluaciones`:![alt text](image.png)
@@ -207,13 +208,21 @@ los clientes existentes, y justifica en una frase.
 **Fragmento de `/openapi.json`** con la operación `GET /v2/evaluaciones`:
 
 ```json
-
+/v2/evaluaciones/{id}":{"get":{"operationId":"obtenerEvaluacion_v2","tags":["v2"],"summary":"Obtiene una evaluación","parameters":[{"name":"id","in":"path","required":true,"description":"Identificador de la evaluación.","schema":{"type":"integer","minimum":1}}],"responses":{"200":{"description":"La evaluación.","content":{"application/json":{"schema":{"$ref":"#/components/schemas/Evaluacion"}}}},"404":{"description":"No existe la evaluación.","content":{"application/problem+json":{"schema":{"$ref":"#/components/schemas/Problema"}}}}}},"patch":{"operationId":"calificarEvaluacion_v2","tags":["v2"],"summary":"Pone, cambia o quita la nota de una evaluación","parameters":[{"name":"id","in":"path","required":true,"description":"Identificador de la evaluación.","schema":{"type":"integer","minimum":1}}],"requestBody":{"required":true,"content":{"application/json":{"schema":{"$ref":"#/components/schemas/Calificacion"}}}},"responses":{"200":{"description":"La evaluación con su nota nueva.","content":{"application/json":{"schema":{"$ref":"#/components/schemas/Evaluacion"}}}},"400":{"description":"El cuerpo no es JSON válido, está vacío o no es un objeto.","content":{"application/problem+json":{"schema":{"$ref":"#/components/schemas/Problema"}}}},"404":{"description":"No existe la evaluación.","content":{"application/problem+json":{"schema":{"$ref":"#/components/schemas/Problema"}}}},"415":{"description":"El cuerpo no se envió como application/json.","content":{"application/problem+json":{"schema":{"$ref":"#/components/schemas/Problema"}}}},"422":{"description":"La nota debe ser un número entre 0 y 5, o null.","content":{"application/problem+json":{"schema":{"$ref":"#/components/schemas/Problema"}}}}}}
 ```
 
 ## 6. Reflexión
 
-1. En la clase pasada el Modelo guardaba en `localStorage`. ¿Qué problemas concretos resolvió llevarlo a un servidor? ¿Cuáles problemas **nuevos** aparecieron (piensa en tiempo, fallos, dos aparatos)?
+1. En la clase pasada el Modelo guardaba en `localStorage`. ¿Qué problemas concretos resolvió llevarlo a un servidor? ¿Cuáles problemas **nuevos** aparecieron (piensa en tiempo, fallos, dos aparatos)? Anteriormente los datos no se guardaban, la informacion no permanecia en dos equipos o al limpiar el cache. Ahora los datos persisten. Los nuevos problemas se basan en la velocidad de la red
 2. ¿Qué parte de lo que hicieron hoy es **REST de verdad** y qué parte es solo «JSON sobre HTTP»? (Pista: recursos, representaciones, métodos con significado, estados, sin estado.)
+Lo que hicimos es REST de verdad en fue las URIs nombran recursos, no acciones, /v1/evaluaciones, en ves de  /listarEvaluaciones; los  métodos tienen semántica real, GET nunca modifica nada y si se llama mil veces el resultado es el mismo, DELETE borra y un segundo DELETE al mismo id da 404 porque el estado del servidor cambió los estados HTTP comunican exactamente
+  qué pasó segun el estado. El servidor no guarda
+  memoria del cliente entre solicitudes
+
 3. Elijan un principio de diseño de endpoints que les costó respetar. ¿Cuál era la tentación y qué prueba o regla los detuvo?
+No poner verbos en la URI. Como usar /calificar o /eliminar. Asi se siente que accion cumple. Lo que nos detuvo fue la parte 1 cuando comparamos nuestras URIs con la tabla de errores  /crearEvaluacion mal, nos quedó que el método ya es el verbo y la URI solo debe nombrar el recurso.
 4. La documentación OpenAPI y el código pueden contradecirse. ¿Cómo las pruebas de la Parte 5 lo evitan? ¿Qué otra forma conocen de mantenerlas de acuerdo?
+si el código tiene un endpoint que no está documentado, o el doc describe uno que no existe, la prueba falla. Hasta el momento no conocemos otra forma de hacerlo
 5. Si esta API la usaran 50 aplicaciones de otras personas, ¿qué cambiaría en su manera de evolucionarla?
+Tendríamos que anunciar cualquier cambio con meses de anticipación usando Deprecation y Sunset, mantener las versiones viejas  funcionando más tiempo
+ss
